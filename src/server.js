@@ -1,36 +1,57 @@
 'use strict';
+global.navigator = { userAgent: 'all' };
+const Path = require('path');
 const Hapi = require('hapi');
-const HapiReactViews = require('hapi-react-views');
+const Inert = require('inert');
 const Vision = require('vision');
+const HapiReactViews = require('hapi-react-views');
 const config = require('../config/config.js');
 
 require('babel-core/register')({
     presets: ['react', 'env']
 });
 
-const main = async function () {
-  const server = Hapi.Server({
-    host: config.host,
-    port: config.port
-  });
 
-    await server.register(Vision);
+const main = async function () {
+
+    const server = Hapi.Server({
+        host: config.host,
+        port: config.port
+    });
+
+    await server.register([Inert, Vision]);
 
     server.views({
         engines: {
             jsx: HapiReactViews
         },
-        compileOptions: {}, // optional
         relativeTo: __dirname,
-        path: 'views'
+        path: 'components',
+        compileOptions: {
+            renderMethod: 'renderToString',
+            layoutPath: Path.join(__dirname, 'components'),
+            layout: 'html'
+        }
     });
 
     server.route({
-      method: 'GET',
-      path: '/',
-      handler: (request, h) => {
-          return h.view('home');
-      }
+        method: 'GET',
+        path: '/assets/client.js',
+        handler: {
+            file: Path.join(__dirname, './assets/client.js')
+        }
+    });
+
+    server.route({
+        method: 'GET',
+        path: '/',
+        handler: (request, h) => {
+
+            const context = { foo: 'baz', isLoggedIn: false };
+            context.state = `window.state = ${JSON.stringify(context)};`;
+
+            return h.view('app', context);
+        }
     });
 
     await server.start();
